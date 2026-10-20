@@ -26,7 +26,6 @@
     "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.5",
     "express": "^4.21.0",
-    "firebase": "^12.6.0",
-    "git": "^0.1.5"
+    "firebase": "^12.6.0"
   }
 }
