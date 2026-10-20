@@ -1,0 +1,99 @@
+rules_version = '2';
+
+// Firestore security rules for Selene IA.
+//
+// Model: ALLOWLIST, not deny-list.
+// A user may change only the fields listed in `userUpdateFields()`. Every other
+// field is protected by default, including future fields such as `role`, `plan`
+// or `permissions` — they never need to be added to a deny-list to stay locked.
+//
+// Client-side mirror: the allowlist in `src/services/user.js` filters the same
+// field names before the write. That copy is UX/defence-in-depth only; THIS file
+// is the real security boundary, because a browser client can always be bypassed.
+//
+// Deploy: `firebase deploy --only firestore:rules` (requires project access).
+// Test:   `npm run test:rules` (Firebase Emulator, fully offline).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------- helpers
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Keys added, changed or removed by an update. Removing a protected field
+    // is a change too, so deleting `role` is denied just like editing it.
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ------------------------------------------------------------- users/{uid}
+
+    // Fields the owner may set while creating their own profile document.
+    // `email` is validated against the auth token, never trusted as input.
+    function userCreateFields() {
+      return ['email', 'displayName', 'photoURL', 'onboardingComplete', 'createdAt', 'lastLogin'];
+    }
+
+    // Fields the owner may change on an existing profile.
+    // PROTECTED (everything else): role, plan, permissions, createdAt, lastLogin,
+    // email, and any field added in the future.
+    function userUpdateFields() {
+      return ['preferredName', 'discoverySource', 'usageIntent', 'onboardingComplete', 'updatedAt'];
+    }
+
+    match /users/{uid} {
+      // A profile is private: only its owner can read it.
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        // No field outside the creation allowlist (blocks `role` at sign-up).
+        && request.resource.data.keys().hasOnly(userCreateFields())
+        // The identity fields must be present from the start.
+        && request.resource.data.keys().hasAll(['email', 'onboardingComplete', 'createdAt', 'lastLogin'])
+        // The email must match the authenticated identity.
+        && request.resource.data.email == request.auth.token.email
+        // Onboarding cannot be pre-completed by the client.
+        && request.resource.data.onboardingComplete == false
+        // Server-owned timestamps.
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.lastLogin == request.time;
+
+      allow update: if isOwner(uid)
+        // Only allowlisted fields may change. `role`, `plan`, `permissions` and
+        // every unknown field are rejected here.
+        && changedKeys().hasOnly(userUpdateFields())
+        // Identity fields may not be dropped by an update.
+        && request.resource.data.keys().hasAll(['email', 'onboardingComplete'])
+        // Onboarding is monotonic: it can be completed, never reopened.
+        && request.resource.data.onboardingComplete == true
+        // Timestamps stay server-owned.
+        && request.resource.data.updatedAt == request.time;
+
+      // A profile is never deleted from the client; account deletion is an
+      // administrative operation.
+      allow delete: if false;
+
+      // ----------------------------------------------------------------- chats
+      // Per-user isolation. The chat list and its messages are private to the
+      // owner of the parent profile document.
+      // Field-level hardening for chat documents is out of scope for this change.
+
+      match /chats/{chatId} {
+        allow read, create, update, delete: if isOwner(uid);
+
+        match /messages/{messageId} {
+          allow read, create, update, delete: if isOwner(uid);
+        }
+      }
+    }
+
+    // Anything not matched above is denied by default.
+  }
+}

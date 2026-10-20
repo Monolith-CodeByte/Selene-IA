@@ -1,5 +1,6 @@
 import { db } from '../firebase-config';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { sanitizeProfileUpdate } from './profileFields';
 
 export const UserService = {
     // Get user profile or null if not exists
@@ -41,11 +42,21 @@ export const UserService = {
     },
 
     // Update specific fields
+    // Only the fields allowed by the profile policy are written; anything else is
+    // dropped so a caller cannot escalate privileges through this path.
     updateUserProfile: async (uid, data) => {
         try {
             const userRef = doc(db, "users", uid);
+            const { safeData, rejected } = sanitizeProfileUpdate(data);
+
+            if (rejected.length > 0) {
+                console.warn(
+                    `updateUserProfile: ignored non-writable field(s): ${rejected.join(', ')}`
+                );
+            }
+
             await updateDoc(userRef, {
-                ...data,
+                ...safeData,
                 updatedAt: serverTimestamp()
             });
         } catch (error) {

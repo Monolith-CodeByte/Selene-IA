@@ -1,5 +1,5 @@
 export const GENERATED_PROJECT_KNOWLEDGE = {
-  "generatedAt": "2026-09-26T22:19:00.939Z",
+  "generatedAt": "2026-10-15T20:28:49.470Z",
   "detectedRoutes": [
     "/ -> HomePage",
     "/contact -> ContactPage",
@@ -26,6 +26,7 @@ export const GENERATED_PROJECT_KNOWLEDGE = {
     "src/services/gemini.js",
     "src/services/history.js",
     "src/services/presence.js",
+    "src/services/profileFields.js",
     "src/services/user.js"
   ],
   "landingFiles": [
