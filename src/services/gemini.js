@@ -1,4 +1,5 @@
 import { apiUrl } from './api.js';
+import { getAuth } from 'firebase/auth';
 
 class SmartChatSession {
     constructor(options = {}) {
@@ -7,7 +8,19 @@ class SmartChatSession {
         this.history = [];
     }
 
-    async sendMessage(message) {
+    async getIdToken() {
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return null;
+        return await user.getIdToken(true);
+    }
+
+    async sendMessage(message, idToken) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (idToken) {
+            headers['Authorization'] = `Bearer ${idToken}`;
+        }
+
         const body = {
             userId: this.userId,
             chatId: this.chatId,
@@ -17,7 +30,7 @@ class SmartChatSession {
 
         const response = await fetch(apiUrl('/api/gemini/chat'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(body),
         });
 
@@ -46,11 +59,16 @@ export const GeminiService = {
         return new SmartChatSession(options);
     },
 
-    generateTitle: async (message) => {
+    generateTitle: async (message, idToken = null) => {
         try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (idToken) {
+                headers['Authorization'] = `Bearer ${idToken}`;
+            }
+
             const response = await fetch(apiUrl('/api/gemini/title'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ message }),
             });
 
