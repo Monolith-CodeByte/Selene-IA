@@ -59,9 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
         cleanupActiveApp();
 
         document.body.classList.remove('landing-active');
-        const landingElements = document.querySelectorAll('header, footer, main, .login-container');
-        landingElements.forEach((el) => el.remove());
-
+        // La landing vive solo dentro de #app; reescribir innerHTML destruye su subtree.
+        // No usar selectores globales por tag: 'main' colisionaría con el shell del app.
         const app = document.getElementById('app');
         app.classList.remove('hidden');
         app.innerHTML = `
