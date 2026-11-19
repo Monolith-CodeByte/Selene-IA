@@ -17,7 +17,6 @@ import { initOnboarding } from './components/Onboarding';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ChatHistoryService } from './services/history';
 import { initAFKMode } from './components/AFKMode';
-import { PresenceService } from './services/presence';
 import { resolveProfileAction, createAttemptCounter, createOnboardingScreen } from './services/loginFlow';
 import { initCookieConsent } from './components/CookieConsent';
 import { initUpdateBanner } from './components/UpdateBanner';
@@ -76,12 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Arranque síncrono: shell e inicializadores en la misma tarea, sin temporizador
         try {
-            PresenceService.init(finalUser.uid, {
-                displayName: finalUser.displayName || finalUser.preferredName || 'Usuario',
-                email: finalUser.email || '',
-                photoURL: finalUser.photoURL || ''
-            });
-
             const chatController = initChatArea(finalUser);
             const settingsModal = initSettingsModal(() => AuthService.logout());
             const confirmModal = new ConfirmModal();
@@ -217,7 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('landing-active');
 
         landingRouter.init();
-        PresenceService.cleanup().catch(() => { });
     };
 
     // Envoltorio no async: absorbe rechazos para que no lleguen a onAuthStateChanged
