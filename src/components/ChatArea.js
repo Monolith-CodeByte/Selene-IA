@@ -1,6 +1,7 @@
 import { initInputArea } from './InputArea';
 import { GeminiService } from '../services/gemini';
 import { ChatHistoryService } from '../services/history';
+import { AI_FAILURE_MESSAGE, persistFailedAiMessage } from '../services/chatFailure';
 import { getAuth } from 'firebase/auth';
 
 export function initChatArea(user) {
@@ -170,7 +171,23 @@ export function initChatArea(user) {
       console.error('Gemini Error:', error);
       if (currentChatId === targetChatId) {
         removeLoading(messagesArea);
-        appendMessage(messagesArea, 'Error de conexión o API Key inválida.', 'ai');
+      }
+
+      try {
+        const aiResult = await persistFailedAiMessage({
+          userId: user.uid,
+          chatId: targetChatId,
+          saveMessage: ChatHistoryService.saveMessage,
+        });
+        if (aiResult?.messageId) {
+          renderedMessageIds.add(aiResult.messageId);
+        }
+      } catch (persistError) {
+        console.error('Failed to persist AI error message:', persistError);
+      }
+
+      if (currentChatId === targetChatId) {
+        appendMessage(messagesArea, AI_FAILURE_MESSAGE, 'ai');
       }
     }
   };
