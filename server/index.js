@@ -6,10 +6,17 @@ import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildSystemInstruction } from "../src/config/systemInstruction.js";
 
+import {
+    initializeFirebaseAdmin,
+    verifyIdToken,
+    createAuthMiddleware,
+    createRateLimiter,
+    corsOptions,
+} from "./proxyAuth.js";
+
 // --- Config ---
 const PORT = 3001;
 const MODEL_PRIORITY = ["gemini-3.5-flash-lite", "gemini-3.6-flash"];
-const CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"];
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,23 +31,31 @@ if (!API_KEY) {
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 
+// --- Firebase Admin ---
+try {
+    initializeFirebaseAdmin();
+    console.log("[server] Firebase Admin initialized");
+} catch (err) {
+    console.error("[server] Failed to initialize Firebase Admin:", err.message);
+    process.exit(1);
+}
+
 // --- Express setup ---
 const app = express();
 
-app.use(
-    cors({
-        origin(origin, callback) {
-            // Allow requests with no origin (curl, server-to-server)
-            if (!origin || CORS_ORIGINS.includes(origin)) {
-                callback(null, true);
-            } else {
-                callback(new Error("Not allowed by CORS"));
-            }
-        },
-    })
-);
-
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
+
+// Auth middleware for all /api/gemini/* routes
+const authMiddleware = createAuthMiddleware(verifyIdToken);
+app.use("/api/gemini", authMiddleware);
+
+// Rate limiters
+const userLimiter = createRateLimiter({ windowMs: 60000, max: 30 }); // 30 req/min per user
+const ipLimiter = createRateLimiter({ windowMs: 60000, max: 15 }); // 15 req/min per IP
+
+app.use("/api/gemini", userLimiter);
+app.use("/api/gemini", ipLimiter);
 
 // --- Helpers ---
 
@@ -134,11 +149,14 @@ async function generateTitle(message, history) {
 
 app.post("/api/gemini/chat", async (req, res) => {
     try {
-        const { userId, chatId, message, history = [] } = req.body;
+        const { chatId, message, history = [] } = req.body;
 
         if (!message) {
             return res.status(400).json({ error: "Missing required field: message" });
         }
+
+        // userId comes from the verified token (attached by authMiddleware)
+        const userId = req.userId;
 
         const systemInstruction = buildSystemInstruction();
         const result = await sendWithFallback(message, history, systemInstruction);
@@ -160,11 +178,13 @@ app.post("/api/gemini/chat", async (req, res) => {
 
 app.post("/api/gemini/title", async (req, res) => {
     try {
-        const { userId, chatId, message, history = [] } = req.body;
+        const { chatId, message, history = [] } = req.body;
 
         if (!message) {
             return res.status(400).json({ error: "Missing required field: message" });
         }
+
+        const userId = req.userId;
 
         const result = await generateTitle(message, history);
 

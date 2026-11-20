@@ -17,7 +17,7 @@ import { initOnboarding } from './components/Onboarding';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ChatHistoryService } from './services/history';
 import { initAFKMode } from './components/AFKMode';
-import { PresenceService } from './services/presence';
+import { resolveProfileAction, createAttemptCounter, createOnboardingScreen } from './services/loginFlow';
 import { initCookieConsent } from './components/CookieConsent';
 import { initUpdateBanner } from './components/UpdateBanner';
 
@@ -28,9 +28,11 @@ import { HomePage, FeaturesPage, PrivacyPage, TermsPage, ContactPage } from './l
 document.addEventListener('DOMContentLoaded', () => {
     let activeAppCleanup = null;
     // Generación de auth: aborta continuaciones obsoletas tras un cambio de estado
-    let authGeneration = 0, loginAttempts = 0;
+    let authGeneration = 0;
     // Tope de reintentos de login antes de cerrar sesión
     const MAX_ATTEMPTS = 3;
+    const attemptCounter = createAttemptCounter(MAX_ATTEMPTS);
+    const onboardingScreen = createOnboardingScreen();
     // Verdadero si la generación ya fue superada por un evento de auth posterior
     const isStale = (g) => g !== authGeneration;
     initCookieConsent();
@@ -73,12 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Arranque síncrono: shell e inicializadores en la misma tarea, sin temporizador
         try {
-            PresenceService.init(finalUser.uid, {
-                displayName: finalUser.displayName || finalUser.preferredName || 'Usuario',
-                email: finalUser.email || '',
-                photoURL: finalUser.photoURL || ''
-            });
-
             const chatController = initChatArea(finalUser);
             const settingsModal = initSettingsModal(() => AuthService.logout());
             const confirmModal = new ConfirmModal();
@@ -111,8 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Error de login con reintento acotado: muestra el error o cierra sesión al tope
     const failLogin = async (user, generation, retry) => {
-        loginAttempts += 1;
-        if (loginAttempts >= MAX_ATTEMPTS) {
+        attemptCounter.recordFailure();
+        if (attemptCounter.isExhausted()) {
             try {
                 await AuthService.logout();
             } catch (err) {
@@ -156,23 +152,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (isStale(generation)) return;
         // La carga resolvió: reinicia los intentos acumulados
-        loginAttempts = 0;
+        attemptCounter.reset();
 
-        if (!profile || !profile.onboardingComplete) {
-            const app = document.getElementById('app');
-            app.innerHTML = '';
-            app.classList.add('hidden');
+        const action = resolveProfileAction(profile);
 
-            const showOnboarding = () => {
+        if (action === 'app') {
+            proceedToApp({ ...user, preferredName: profile.preferredName });
+            return;
+        }
+
+        const app = document.getElementById('app');
+        app.innerHTML = '';
+        app.classList.add('hidden');
+
+        const showOnboarding = () => {
+            if (isStale(generation)) return;
+            const screen = initOnboarding(user, (updatedUser) => {
                 if (isStale(generation)) return;
-                const onboardingScreen = initOnboarding(user, (updatedUser) => {
-                    if (isStale(generation)) return;
-                    proceedToApp(updatedUser);
-                });
-                document.body.appendChild(onboardingScreen);
-            };
+                proceedToApp(updatedUser);
+            });
+            onboardingScreen.mount(screen);
+            document.body.appendChild(onboardingScreen.current);
+        };
 
-            // Reintento de creación solo: setDoc con merge es idempotente
+        if (action === 'create') {
+            // Solo aqui se crea el documento; un perfil existente nunca entra aqui.
             const attemptCreate = async () => {
                 try {
                     await UserService.createUserProfile(user);
@@ -186,23 +190,26 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             await attemptCreate();
-        } else {
-            proceedToApp({ ...user, preferredName: profile.preferredName });
+            return;
         }
+
+        // action === 'onboarding': perfil existente e incompleto, reanudar sin writes.
+        showOnboarding();
     };
 
     const onSignedOut = async () => {
         cleanupActiveApp();
 
-        const onboarding = document.querySelector('.onboarding-screen');
-        if (onboarding) onboarding.remove();
+        // Reset al cerrar sesión: un fallo determinístico no se vuelve
+        // un callejón sin salida en la sesión siguiente.
+        attemptCounter.reset();
+        onboardingScreen.teardown();
 
         const app = document.getElementById('app');
         app.classList.add('hidden');
         document.body.classList.add('landing-active');
 
         landingRouter.init();
-        PresenceService.cleanup().catch(() => { });
     };
 
     // Envoltorio no async: absorbe rechazos para que no lleguen a onAuthStateChanged

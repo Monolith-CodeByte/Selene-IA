@@ -1,4 +1,5 @@
 import { UserService } from '../services/user';
+import { buildOnboardingProfilePayload } from '../services/onboardingProfile';
 
 export function initOnboarding(user, onComplete) {
     const container = document.createElement('div');
@@ -105,7 +106,6 @@ export function initOnboarding(user, onComplete) {
             });
 
             nextBtn.onclick = () => {
-                if (!discoverySource) discoverySource = 'unknown'; // Default if skipped
                 step = 3;
                 render();
             };
@@ -129,12 +129,14 @@ export function initOnboarding(user, onComplete) {
 
                 try {
                     // Save to Firestore
-                    await UserService.updateUserProfile(user.uid, {
-                        preferredName: preferredName,
-                        discoverySource: discoverySource,
-                        usageIntent: selectedUsage,
-                        onboardingComplete: true
-                    });
+                    await UserService.updateUserProfile(
+                        user.uid,
+                        buildOnboardingProfilePayload({
+                            preferredName,
+                            discoverySource,
+                            usageIntent: selectedUsage,
+                        })
+                    );
 
                     // Animate out
                     container.classList.add('fade-out');

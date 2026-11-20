@@ -32,8 +32,10 @@ export const UserService = {
                 lastLogin: serverTimestamp()
             };
 
-            // Use setDoc with merge: true to avoid overwriting if somehow exists
-            await setDoc(userRef, userData, { merge: true });
+            // Create-only: callers must check getUserProfile() first. setDoc with
+            // merge is evaluated by the rules as an update and denied on an
+            // existing document, so creation must never merge.
+            await setDoc(userRef, userData);
             return userData;
         } catch (error) {
             console.error("Error creating user profile:", error);
