@@ -133,3 +133,28 @@ These were flagged by the previous run and remain open:
 - [ ] W5: task 4.2 checked with recorded smoke results; real ticket id in `tasks.md`; `verify` report exists; `archive` run.
 - [ ] `npm run build` still passes.
 - [ ] A closing note in the change record acknowledging the triage error: the original audit raised 6 valid findings, not 3.
+
+## W5 — Manual smoke checklist (to be executed by human)
+
+Copy results here when done. Mark PASS/FAIL + notes/screenshots.
+
+### A) STATUS.md smoke (core auth/boot/token)
+- [ ] 1. Normal login → app boots; sidebar + chat render
+- [ ] 2. DevTools → Network → Offline, hard reload with persisted session → inline error "No pudimos cargar tu perfil" **styled** (accent button, centred, readable)
+- [ ] 3. Back Online, click **Reintentar** → recovers and boots
+- [ ] 4. Repeat failure **3 times** → on 3rd: signs out to landing with **live CTA** (not "Cargando Elai...")
+- [ ] 5. Offline → trigger error → **authenticate in a second tab** before clicking Reintentar → **no** error surface; **no** dead session boots
+
+### B) W1 cycle smoke (landing removal / global selector)
+- [ ] Cold load → landing renders inside `#app` → login → app boots cleanly
+- [ ] Logout → landing re-renders correctly (router fade)
+- [ ] Login → logout → login again in same session → no duplicated header/footer/main, no orphan nodes at body level
+- [ ] New user → onboarding → complete onboarding → app boots, `.onboarding-screen` removed
+
+### Execution log
+- Tester: ___________
+- Date/time: ___________
+- Browser/DevTools: ___________
+- Build hash (dist): ___________
+- Notes/bugs found: ___________
+- Result: ☐ PASS  ☐ FAIL  (if FAIL, list failing steps)
