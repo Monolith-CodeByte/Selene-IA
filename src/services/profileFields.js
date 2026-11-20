@@ -3,7 +3,7 @@
  * to change on their own profile document.
  *
  * This module deliberately has no Firebase or Vite dependency so it can be unit
- * tested in plain Node (see tests/profile-fields.test.js).
+ * tested in plain Node (see tests/profile-fields.unit.test.js).
  *
  * IMPORTANT: `ALLOWED_PROFILE_FIELDS` mirrors `userUpdateFields()` in
  * /firestore.rules. The rules are the real security boundary — this filter only

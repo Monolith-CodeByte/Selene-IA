@@ -19,7 +19,7 @@ What each layer owns:
 
 | Layer | Role |
 |-------|------|
-| Browser client (`src/`) | Renders the landing site and the chat app. Authenticates with Firebase, persists chats in Cloud Firestore, tracks presence in Realtime Database, and calls Gemini only through HTTP requests to the proxy (`src/services/gemini.js`). It never holds the Gemini API key. |
+| Browser client (`src/`) | Renders the landing site and the chat app. Authenticates with Firebase, persists chats in Cloud Firestore, and calls Gemini only through HTTP requests to the proxy (`src/services/gemini.js`). It never holds the Gemini API key. |
 | Express proxy (`server/index.js`) | Owns `GEMINI_API_KEY`, builds the system instruction from `src/config/systemInstruction.js`, calls Gemini with the `@google/generative-ai` SDK, applies model fallback, enforces a CORS allowlist, and logs usage metadata. |
 | Gemini API | Google's generative AI models. |
 
@@ -42,7 +42,7 @@ Other server behaviors:
 |------|------|
 | `src/` | Client application (vanilla JS ES modules, Vite entry `src/main.js`). |
 | `src/components/` | UI components (Sidebar, ChatArea, InputArea, SettingsModal, Onboarding, LoginScreen, AFKMode, CookieConsent, UpdateBanner, ConfirmModal, PrivacyPolicyModal). |
-| `src/services/` | Client logic: `api.js` (proxy base URL), `gemini.js` (HTTP bridge to the proxy), `auth.js` (Google Sign-In), `history.js` (Firestore chat history), `user.js` (Firestore profiles), `profileFields.js` (profile field policy), `presence.js` (Realtime Database presence). |
+| `src/services/` | Client logic: `api.js` (proxy base URL), `gemini.js` (HTTP bridge to the proxy), `auth.js` (Google Sign-In), `history.js` (Firestore chat history), `user.js` (Firestore profiles), `profileFields.js` (profile field policy). |
 | `src/config/` | `systemInstruction.js` (Selene's identity + knowledge prompt), `seleneProjectKnowledge.js` and generated variant, `seleneReleaseNotes.js`. |
 | `src/landing_comp/` | Public marketing site: client-side router + pages (Home, Features, Privacy, Terms, Contact). |
 | `src/styles/` | Per-component CSS. |
@@ -60,13 +60,13 @@ Other server behaviors:
 | Language | JavaScript (ES modules), no framework |
 | Client build | Vite 7, Tailwind CSS 3, PostCSS |
 | Backend | Node.js + Express 4, `@google/generative-ai` SDK |
-| Platform services | Firebase (Auth, Cloud Firestore, Realtime Database), Google Gemini, Google AdSense |
+| Platform services | Firebase (Auth, Cloud Firestore), Google Gemini, Google AdSense |
 
 ## Prerequisites
 
 - **Node.js** `^20.19.0 || >=22.12.0` (Vite 7 requirement)
 - A **Google Cloud project** with the Gemini API enabled and an API key
-- A **Firebase project** with Authentication (Google Sign-In), Cloud Firestore, and Realtime Database enabled
+- A **Firebase project** with Authentication (Google Sign-In) and Cloud Firestore enabled
 
 ## Getting started
 
@@ -98,7 +98,7 @@ All variables are read from `.env` at the project root.
 |----------|---------|---------|
 | `GEMINI_API_KEY` | Server only | Gemini API key. No `VITE_` prefix, so it is never bundled into the client. Required — the proxy exits if it is missing. |
 | `VITE_API_URL` | Client | Base URL of the proxy. Defaults to `http://localhost:3001`. |
-| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_MEASUREMENT_ID`, `VITE_FIREBASE_DATABASE_URL` | Client | Firebase web-app configuration, read by `src/firebase-config.js`. |
+| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_MEASUREMENT_ID` | Client | Firebase web-app configuration, read by `src/firebase-config.js`. |
 
 > Note: `.env.example` currently documents only `GEMINI_API_KEY` and `VITE_API_URL`. The `VITE_FIREBASE_*` variables are required by `src/firebase-config.js` and must be added manually until the example file is updated.
 
@@ -143,7 +143,6 @@ firebase deploy --only firestore:rules --project <project-id>
 - Multi-turn chat with conversation history, sidebar, and auto-generated titles.
 - Chat persistence in Cloud Firestore (per-user), including deleting conversations.
 - Settings modal: font size, typing speed, animations, logout.
-- Presence (online / last seen) via Firebase Realtime Database.
 - Cookie-consent gate for ads; `ads.txt` shipped in `public/`.
 - **Known limitations:** the image-upload and microphone buttons in the input area are UI placeholders ("feature not available") and do not yet upload or record anything.
 

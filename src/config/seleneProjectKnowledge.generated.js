@@ -1,11 +1,12 @@
 export const GENERATED_PROJECT_KNOWLEDGE = {
-  "generatedAt": "2026-10-24T19:45:47.664Z",
+  "generatedAt": "2026-11-19T20:10:49.122Z",
   "detectedRoutes": [
     "/ -> HomePage",
     "/contact -> ContactPage",
     "/features -> FeaturesPage",
     "/privacy -> PrivacyPage",
-    "/terms -> TermsPage"
+    "/terms -> TermsPage",
+    "onboarding -> perfil"
   ],
   "componentFiles": [
     "src/components/AFKMode.js",
@@ -23,9 +24,11 @@ export const GENERATED_PROJECT_KNOWLEDGE = {
   "serviceFiles": [
     "src/services/api.js",
     "src/services/auth.js",
+    "src/services/chatFailure.js",
     "src/services/gemini.js",
     "src/services/history.js",
-    "src/services/presence.js",
+    "src/services/loginFlow.js",
+    "src/services/onboardingProfile.js",
     "src/services/profileFields.js",
     "src/services/user.js"
   ],

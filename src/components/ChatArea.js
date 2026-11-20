@@ -1,6 +1,8 @@
 import { initInputArea } from './InputArea';
 import { GeminiService } from '../services/gemini';
 import { ChatHistoryService } from '../services/history';
+import { AI_FAILURE_MESSAGE, persistFailedAiMessage } from '../services/chatFailure';
+import { getAuth } from 'firebase/auth';
 
 export function initChatArea(user) {
   const chatContainer = document.getElementById('chat-container');
@@ -124,7 +126,10 @@ export function initChatArea(user) {
 
       if (isNewChat && targetChatId) {
         (async () => {
-          const title = await GeminiService.generateTitle(text);
+          const auth = getAuth();
+          const currentUser = auth.currentUser;
+          const idToken = currentUser ? await currentUser.getIdToken(true) : null;
+          const title = await GeminiService.generateTitle(text, idToken);
           await ChatHistoryService.updateChatTitle(user.uid, targetChatId, title);
         })();
       }
@@ -141,7 +146,11 @@ export function initChatArea(user) {
         chatSession = GeminiService.startChat();
       }
 
-      const result = await chatSession.sendMessage(text);
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      const idToken = currentUser ? await currentUser.getIdToken(true) : null;
+
+      const result = await chatSession.sendMessage(text, idToken);
       const response = await result.response;
       const textResponse = response.text();
 
@@ -162,7 +171,23 @@ export function initChatArea(user) {
       console.error('Gemini Error:', error);
       if (currentChatId === targetChatId) {
         removeLoading(messagesArea);
-        appendMessage(messagesArea, 'Error de conexión o API Key inválida.', 'ai');
+      }
+
+      try {
+        const aiResult = await persistFailedAiMessage({
+          userId: user.uid,
+          chatId: targetChatId,
+          saveMessage: ChatHistoryService.saveMessage,
+        });
+        if (aiResult?.messageId) {
+          renderedMessageIds.add(aiResult.messageId);
+        }
+      } catch (persistError) {
+        console.error('Failed to persist AI error message:', persistError);
+      }
+
+      if (currentChatId === targetChatId) {
+        appendMessage(messagesArea, AI_FAILURE_MESSAGE, 'ai');
       }
     }
   };
