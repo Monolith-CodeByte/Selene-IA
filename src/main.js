@@ -13,6 +13,8 @@ import { initChatArea } from './components/ChatArea';
 import { initSettingsModal } from './components/SettingsModal';
 import { AuthService } from './services/auth';
 import { UserService } from './services/user';
+import { app as firebaseApp } from './firebase-config';
+import { resolveProfileFailure } from './services/profileFailure';
 import { initOnboarding } from './components/Onboarding';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ChatHistoryService } from './services/history';
@@ -106,7 +108,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Error de login con reintento acotado: muestra el error o cierra sesión al tope
-    const failLogin = async (user, generation, retry) => {
+    const failLogin = async (user, generation, retry, failure) => {
+        if (failure?.retryable === false) {
+            if (isStale(generation)) return;
+            // Sin reintento: dejar el code visible y ofrecer una salida explícita
+            renderLoginError(retry, failure);
+            return;
+        }
         attemptCounter.recordFailure();
         if (attemptCounter.isExhausted()) {
             try {
@@ -122,23 +130,33 @@ document.addEventListener('DOMContentLoaded', () => {
         renderLoginError(async () => {
             if (isStale(generation)) return;
             await retry();
-        });
+        }, failure);
     };
 
     // Superficie de error dentro de #app; nunca reutiliza el botón del landing
-    const renderLoginError = (retry) => {
+    const renderLoginError = (retry, failure = resolveProfileFailure({ code: 'unknown', phase: 'load' })) => {
         const app = document.getElementById('app');
         app.classList.remove('hidden');
+        const canRetry = failure.retryable !== false;
         app.innerHTML = `
             <div class="login-error">
-                <h2 class="login-error__title">No pudimos cargar tu perfil</h2>
-                <p class="login-error__message">Revisa tu conexión e inténtalo de nuevo.</p>
-                <button id="login-retry" type="button" class="login-error__retry">Reintentar</button>
+                <h2 class="login-error__title">${failure.title}</h2>
+                <p class="login-error__message">${failure.message}</p>
+                <p class="login-error__detail">${failure.detail}</p>
+                ${canRetry
+                    ? '<button id="login-retry" type="button" class="login-error__retry">Reintentar</button>'
+                    : '<button id="login-signout" type="button" class="login-error__signout">Cerrar sesión</button>'}
             </div>
         `;
-        document.getElementById('login-retry').addEventListener('click', () => {
-            retry().catch((err) => console.error('Reintento de login:', err));
-        });
+        if (canRetry) {
+            document.getElementById('login-retry').addEventListener('click', () => {
+                retry().catch((err) => console.error('Reintento de login:', err));
+            });
+        } else {
+            document.getElementById('login-signout').addEventListener('click', () => {
+                AuthService.logout().catch((err) => console.error('Error al cerrar sesión:', err));
+            });
+        }
     };
 
     const onLoginSuccess = async (user, generation) => {
@@ -146,8 +164,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             profile = await UserService.getUserProfile(user.uid);
         } catch (err) {
-            console.error('Error al cargar el perfil:', err);
-            await failLogin(user, generation, () => onLoginSuccess(user, generation));
+            console.error('Error al cargar el perfil:', {
+                code: err?.code,
+                phase: 'load',
+                projectId: firebaseApp.options.projectId,
+                uid: user.uid,
+                error: err,
+            });
+            await failLogin(user, generation, () => onLoginSuccess(user, generation),
+                resolveProfileFailure({ code: err?.code, phase: 'load' }));
             return;
         }
         if (isStale(generation)) return;
@@ -181,8 +206,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     await UserService.createUserProfile(user);
                 } catch (err) {
-                    console.error('Error al crear el perfil:', err);
-                    await failLogin(user, generation, attemptCreate);
+                    console.error('Error al crear el perfil:', {
+                        code: err?.code,
+                        phase: 'create',
+                        projectId: firebaseApp.options.projectId,
+                        uid: user.uid,
+                        error: err,
+                    });
+                    await failLogin(user, generation, attemptCreate,
+                        resolveProfileFailure({ code: err?.code, phase: 'create' }));
                     return;
                 }
                 if (isStale(generation)) return;
