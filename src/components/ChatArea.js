@@ -1,7 +1,12 @@
 import { initInputArea } from './InputArea';
 import { GeminiService } from '../services/gemini';
 import { ChatHistoryService } from '../services/history';
-import { AI_FAILURE_MESSAGE, persistFailedAiMessage } from '../services/chatFailure';
+import {
+  AI_FAILURE_MESSAGE,
+  USER_SAVE_FAILURE_MESSAGE,
+  persistFailedAiMessage,
+  shouldRenderPersistedFailure,
+} from '../services/chatFailure';
 import { getAuth } from 'firebase/auth';
 
 export function initChatArea(user) {
@@ -135,6 +140,8 @@ export function initChatArea(user) {
       }
     } catch (dbError) {
       console.error('Firestore Error (User Msg):', dbError);
+      appendMessage(messagesArea, USER_SAVE_FAILURE_MESSAGE, 'ai');
+      return;
     }
 
     if (currentChatId === targetChatId) {
@@ -173,20 +180,24 @@ export function initChatArea(user) {
         removeLoading(messagesArea);
       }
 
+      let persistedFailure = null;
       try {
-        const aiResult = await persistFailedAiMessage({
+        persistedFailure = await persistFailedAiMessage({
           userId: user.uid,
           chatId: targetChatId,
           saveMessage: ChatHistoryService.saveMessage,
         });
-        if (aiResult?.messageId) {
-          renderedMessageIds.add(aiResult.messageId);
+        if (persistedFailure?.messageId) {
+          renderedMessageIds.add(persistedFailure.messageId);
         }
       } catch (persistError) {
         console.error('Failed to persist AI error message:', persistError);
       }
 
-      if (currentChatId === targetChatId) {
+      if (shouldRenderPersistedFailure({
+        isCurrentChat: currentChatId === targetChatId,
+        messageId: persistedFailure?.messageId,
+      })) {
         appendMessage(messagesArea, AI_FAILURE_MESSAGE, 'ai');
       }
     }
