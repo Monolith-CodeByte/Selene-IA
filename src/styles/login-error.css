@@ -35,7 +35,16 @@
     opacity: 0.7;
 }
 
-.login-error__retry {
+.login-error__detail {
+    margin: -1rem 0 1.5rem;
+    font-size: 0.8rem;
+    font-family: monospace;
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+.login-error__retry,
+.login-error__signout {
     /* No Tailwind preflight is present here, so the browser button defaults
        (system font, border, buttonface background) must be reset by hand. */
     font-family: inherit;
@@ -50,21 +59,25 @@
     transition: opacity 0.15s ease;
 }
 
-.login-error__retry:hover {
+.login-error__retry:hover,
+.login-error__signout:hover {
     opacity: 0.9;
 }
 
-.login-error__retry:active {
+.login-error__retry:active,
+.login-error__signout:active {
     opacity: 0.8;
 }
 
-.login-error__retry:focus-visible {
+.login-error__retry:focus-visible,
+.login-error__signout:focus-visible {
     outline: 2px solid var(--accent-color);
     outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .login-error__retry {
+    .login-error__retry,
+    .login-error__signout {
         transition: none;
     }
 }
