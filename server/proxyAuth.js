@@ -63,30 +63,35 @@ export function createRateLimiter(options = {}) {
     });
 }
 
-const PRODUCTION_ORIGIN = process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) || [
-    "https://seleneai2-0.web.app",
-];
+const DEFAULT_PRODUCTION_ORIGINS = ["https://seleneai2-0.web.app"];
 
-const DEVELOPMENT_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-];
+// In development Vite may pick any port when 5173 is busy; pinning is done in vite.config.js.
+const DEV_LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
-const ALLOWED_ORIGINS = process.env.NODE_ENV === "production"
-    ? PRODUCTION_ORIGIN
-    : [...PRODUCTION_ORIGIN, ...DEVELOPMENT_ORIGINS];
+export function createCorsOptions({
+    nodeEnv = process.env.NODE_ENV,
+    allowedOrigins = DEFAULT_PRODUCTION_ORIGINS,
+} = {}) {
+    const productionOrigins = Array.isArray(allowedOrigins) ? allowedOrigins : [];
 
-export const corsOptions = {
-    origin(origin, callback) {
-        // Reject requests with no origin (curl, server-to-server)
-        if (!origin) {
+    return {
+        origin(origin, callback) {
+            // Reject requests with no origin (curl, server-to-server)
+            if (!origin) {
+                return callback(new Error("Not allowed by CORS"));
+            }
+
+            const allowed = productionOrigins.includes(origin)
+                || (nodeEnv !== "production" && DEV_LOCAL_ORIGIN.test(origin));
+            if (allowed) {
+                return callback(null, true);
+            }
             return callback(new Error("Not allowed by CORS"));
-        }
-        if (ALLOWED_ORIGINS.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error("Not allowed by CORS"));
-        }
-    },
-    credentials: false,
-};
+        },
+        credentials: false,
+    };
+}
+
+const PRODUCTION_ORIGIN = process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) || DEFAULT_PRODUCTION_ORIGINS;
+
+export const corsOptions = createCorsOptions({ allowedOrigins: PRODUCTION_ORIGIN });

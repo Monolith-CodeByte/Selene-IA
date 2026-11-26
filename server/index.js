@@ -13,6 +13,7 @@ import {
     createRateLimiter,
     corsOptions,
 } from "./proxyAuth.js";
+import { createCorsErrorHandler } from "./corsError.js";
 
 // --- Config ---
 const PORT = 3001;
@@ -44,6 +45,7 @@ try {
 const app = express();
 
 app.use(cors(corsOptions));
+app.use(createCorsErrorHandler());
 app.use(express.json({ limit: "1mb" }));
 
 // Auth middleware for all /api/gemini/* routes
