@@ -110,9 +110,17 @@ describe('ChatArea.js wiring (source-level; no DOM runner installed)', () => {
         const catchBody = chatArea.slice(start, end);
         assert.match(catchBody, /let persistedFailure\s*=\s*null/);
         assert.match(catchBody, /messageId:\s*persistedFailure\?\.messageId/);
-        assert.match(
-            catchBody,
-            /if \(shouldRenderPersistedFailure\(\{[\s\S]*?\}\)\) \{\s*appendMessage\(messagesArea, AI_FAILURE_MESSAGE, 'ai'\)/
-        );
+        assert.match(catchBody, /shouldRenderPersistedFailure\(\{/);
+    });
+
+    test('AI failure copy is classified once and reused for persistence and display', () => {
+        const start = chatArea.indexOf("console.error('Gemini Error:', error)");
+        const end = chatArea.indexOf('const { element: inputElement');
+        const catchBody = chatArea.slice(start, end);
+
+        assert.match(catchBody, /const failureMessage = classifyAiFailure\(error\)/);
+        assert.match(catchBody, /message:\s*failureMessage/);
+        assert.match(catchBody, /appendMessage\(messagesArea, failureMessage, 'ai'\)/);
+        assert.doesNotMatch(catchBody, /appendMessage\(messagesArea, AI_FAILURE_MESSAGE/);
     });
 });
