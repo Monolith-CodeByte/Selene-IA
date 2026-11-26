@@ -8,7 +8,7 @@ import express from "express";
 import {
     createAuthMiddleware,
     createRateLimiter,
-    corsOptions,
+    createCorsOptions,
     extractToken,
 } from "../server/proxyAuth.js";
 
@@ -97,7 +97,10 @@ describe("Proxy Auth & Rate Limit", () => {
     });
 
     test("corsOptions rejects origins not in allowed list", (done) => {
-        const originFn = corsOptions.origin;
+        const originFn = createCorsOptions({
+            nodeEnv: "development",
+            allowedOrigins: ["https://seleneai2-0.web.app"],
+        }).origin;
 
         originFn("http://malicious.com", (err, allow) => {
             assert.ok(err instanceof Error, "Should return Error for disallowed origin");

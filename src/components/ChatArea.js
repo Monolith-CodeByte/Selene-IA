@@ -2,8 +2,8 @@ import { initInputArea } from './InputArea';
 import { GeminiService } from '../services/gemini';
 import { ChatHistoryService } from '../services/history';
 import {
-  AI_FAILURE_MESSAGE,
   USER_SAVE_FAILURE_MESSAGE,
+  classifyAiFailure,
   persistFailedAiMessage,
   shouldRenderPersistedFailure,
 } from '../services/chatFailure';
@@ -180,12 +180,14 @@ export function initChatArea(user) {
         removeLoading(messagesArea);
       }
 
+      const failureMessage = classifyAiFailure(error);
       let persistedFailure = null;
       try {
         persistedFailure = await persistFailedAiMessage({
           userId: user.uid,
           chatId: targetChatId,
           saveMessage: ChatHistoryService.saveMessage,
+          message: failureMessage,
         });
         if (persistedFailure?.messageId) {
           renderedMessageIds.add(persistedFailure.messageId);
@@ -198,7 +200,7 @@ export function initChatArea(user) {
         isCurrentChat: currentChatId === targetChatId,
         messageId: persistedFailure?.messageId,
       })) {
-        appendMessage(messagesArea, AI_FAILURE_MESSAGE, 'ai');
+        appendMessage(messagesArea, failureMessage, 'ai');
       }
     }
   };
